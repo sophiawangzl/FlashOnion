@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlashOnion - Pro Study</title>
+    <style>
+        :root {
+            --primary: #28A5A7; 
+            --bg: #243944;      
+            --card-bg: #F5F4D9; 
+            --dark-text: #243944; 
+            --white: #ffffff;
+            --delete: #A44A3F;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg); color: var(--white); margin: 0; padding: 0;
+            height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        header {
+            background: rgba(255, 255, 255, 0.05); padding: 0 2rem; height: 64px;
+            display: flex; align-items: center; justify-content: space-between;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 100;
+            backdrop-filter: blur(10px); flex-shrink: 0;
+        }
+
+        .brand { font-weight: 800; font-size: 1.5rem; color: var(--primary); cursor: pointer; }
+        
+        h2, h3 { color: var(--primary); background: none; padding: 0; border: none; margin-bottom: 1rem; }
+
+        .nav-btn {
+            background: var(--bg); color: white; border: 2px solid white; padding: 0.6rem 1.2rem;
+            border-radius: 4px; font-weight: 600; cursor: pointer; margin-left: 10px;
+        }
+        .btn-create { background: var(--primary); border-color: white; }
+        .nav-btn:hover { opacity: 0.9; }
+        .nav-btn.secondary { background: transparent; opacity: 0.8; }
+
+        main { flex: 1; position: relative; width: 100%; overflow-y: auto; }
+        .view { display: none; padding: 2rem; max-width: 1000px; margin: 0 auto; box-sizing: border-box; }
+        .view.active { display: block; }
+
+        #view-study.active { 
+            display: flex; flex-direction: column; height: 100%; max-width: 100%; padding: 1rem; 
+        }
+
+        .folder-list, .set-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.2rem; }
+        
+        .card-item {
+            background: var(--card-bg); color: var(--dark-text); padding: 1.5rem; border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.2s;
+            position: relative; border-bottom: 5px solid #d9dde8; 
+        }
+        .card-item:hover { transform: translateY(-5px); border-bottom-color: var(--primary); }
+        .card-item h3 { color: var(--bg); font-size: 1.3rem; margin: 0 0 5px 0; font-weight: bold; }
+        .card-item p { margin: 0; opacity: 0.7; font-weight: 500; color: var(--dark-text); }
+
+        .delete-btn-sm { 
+            position: absolute; top: 10px; right: 10px; 
+            color: var(--delete); background: none; border: none; 
+            cursor: pointer; font-size: 1.3rem; font-weight: bold; padding: 5px; z-index: 10;
+        }
+
+        /* 编辑器拖拽样式优化 */
+        .editor-row {
+            background: rgba(255,255,255,0.05); 
+            padding: 1.5rem; 
+            border-radius: 8px; 
+            margin-bottom: 1.5rem; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 1rem;
+            position: relative;
+            cursor: grab;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .editor-row:active { cursor: grabbing; }
+        .editor-row.dragging { opacity: 0.4; transform: scale(0.98); background: rgba(255,255,255,0.1); }
+
+        textarea, input[type="text"], select {
+            width: 100%; 
+            padding: 1rem; 
+            border: 2px solid rgba(255,255,255,0.1);
+            background: var(--card-bg); 
+            color: var(--dark-text);    
+            border-radius: 6px; 
+            font-family: inherit;
+            box-sizing: border-box;
+            font-size: 1rem;
+        }
+
+        textarea::placeholder { color: rgba(36, 57, 68, 0.5); }
+
+        .study-header { width: 100%; max-width: 800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        
+        .study-container { 
+            flex: 1; display: flex; flex-direction: column; align-items: center; 
+            justify-content: flex-start; 
+            width: 100%; position: relative; 
+            padding-top: 5vh; 
+        }
+        
+        .mode-toggle-container {
+            display: flex; align-items: center; gap: 10px;
+            background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px;
+        }
+        .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .toggle-label { font-size: 0.8rem; font-weight: bold; color: white; text-transform: uppercase; letter-spacing: 0.5px;}
+
+        .flashcard-scene { 
+            width: 90%; max-width: 600px; height: 380px; margin-bottom: 2.5rem; cursor: pointer; position: relative; 
+        }
+        
+        .mark-btn {
+            position: absolute; top: 20px; right: 20px; font-size: 2.2rem; 
+            cursor: pointer; transition: 0.2s; color: rgba(36, 57, 68, 0.1); z-index: 50;
+        }
+        .mark-btn.active { color: var(--primary); }
+
+        /* 淡入淡出核心样式 */
+        .flashcard {
+            width: 100%; height: 100%; position: relative; border-radius: 12px;
+        }
+
+        .card-face {
+            position: absolute; width: 100%; height: 100%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: var(--card-bg); color: var(--dark-text); border-radius: 12px; 
+            padding: 2.5rem; box-sizing: border-box; text-align: center; 
+            font-size: 2.1rem; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        
+        /* 初始状态：背面隐藏 */
+        .card-face.front { opacity: 1; transform: scale(1); z-index: 2; }
+        .card-face.back { opacity: 0; transform: scale(0.95); z-index: 1; background-color: #efeed0; }
+
+        /* 翻转状态：淡入淡出逻辑 */
+        .flashcard.is-flipped .card-face.front { opacity: 0; transform: scale(0.95); z-index: 1; pointer-events: none; }
+        .flashcard.is-flipped .card-face.back { opacity: 1; transform: scale(1); z-index: 2; pointer-events: auto; }
+
+        .controls { display: flex; gap: 1.5rem; align-items: center; flex-shrink: 0; margin-bottom: 20px; }
+        .control-btn {
+            background: var(--bg); border: 2px solid white; border-radius: 50%;
+            width: 55px; height: 55px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            color: white; transition: 0.2s;
+        }
+        .control-btn:hover { background: var(--primary); border-color: var(--primary); }
+
+        #progress-text { font-weight: bold; min-width: 60px; text-align: center; color: var(--card-bg); font-size: 1.1rem; }
+        .btn-text { background: none; border: none; color: var(--primary); cursor: pointer; text-decoration: underline; font-weight: bold; }
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="brand" onclick="app.navigate('dashboard')">FlashOnion</div>
+    <div>
+        <button class="nav-btn secondary" onclick="app.showFolderModal()">+ Folder</button>
+        <button class="nav-btn btn-create" onclick="app.createNewSet()">+ Create Set</button>
+    </div>
+</header>
+
+<main>
+    <div id="view-dashboard" class="view active">
+        <div class="section-header">
+            <h2 id="dashboard-title">Library</h2>
+            <button id="back-to-all" class="btn-text hidden" onclick="app.exitFolder()">← Back to All</button>
+        </div>
+        <div id="folder-section">
+            <h3>Folders</h3>
+            <div id="folder-container" class="folder-list"></div>
+        </div>
+        <h3 id="sets-heading" style="margin-top:2.5rem">All Sets</h3>
+        <div id="set-container" class="set-list"></div>
+    </div>
+
+    <div id="view-editor" class="view">
+        <div class="section-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <button class="btn-text" onclick="app.navigate('dashboard')">← Back to Library</button>
+            <h2 style="color:white; margin:0;">Editor</h2>
+            <div style="width:100px"></div> </div>
+        <div style="margin: 2rem 0;">
+            <input type="text" id="set-title-input" placeholder="Set Title" style="background: rgba(255,255,255,0.1); color: white;">
+            <select id="set-folder-select" style="margin-top:10px; background: rgba(255,255,255,0.1); color: white;"><option value="">Folder: None</option></select>
+        </div>
+        <div id="editor-cards-container" ondragover="app.handleDragOver(event)"></div>
+        <button class="nav-btn secondary" style="width: 100%; margin-top: 1rem; margin-left:0;" onclick="app.addCardInput()">+ Add New Card</button>
+        <button class="nav-btn btn-create" style="width: 100%; margin-top: 1rem; margin-left:0; height: 50px;" onclick="app.saveSet()">Save Set</button>
+    </div>
+
+    <div id="view-study" class="view">
+        <div class="study-header">
+            <button class="btn-text" onclick="app.navigate('dashboard')">← Back</button>
+            <div class="mode-toggle-container">
+                <span class="toggle-label">Term</span>
+                <label class="switch">
+                    <input type="checkbox" id="mode-toggle-input" onchange="app.updateCard()">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-label">Def</span>
+            </div>
+            <button class="nav-btn secondary" onclick="app.editCurrentSet()">Edit</button>
+        </div>
+        <div class="study-container">
+            <div class="flashcard-scene">
+                <div id="mark-current" class="mark-btn" onclick="app.toggleMark()">★</div>
+                <div class="flashcard" id="flashcard-element" onclick="app.flipCard()">
+                    <div class="card-face front"><div id="card-front-text"></div></div>
+                    <div class="card-face back"><div id="card-back-text"></div></div>
+                </div>
+            </div>
+            <div class="controls">
+                <button class="control-btn" onclick="app.prevCard()">←</button>
+                <span id="progress-text"></span>
+                <button class="control-btn" onclick="app.nextCard()">→</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-results" class="view">
+        <div style="text-align: center; padding-top: 4rem;">
+            <div style="background: var(--card-bg); color: var(--dark-text); padding: 3rem; border-radius: 12px; display: inline-block; min-width: 350px;">
+                <h2 style="background:none; font-size:2.5rem; color: var(--primary);">Great Session! 🚀</h2>
+                <p id="results-stats" style="font-size: 1.2rem; margin: 1.5rem 0; font-weight:500;"></p>
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <button id="study-marked-btn" class="nav-btn" style="margin:0" onclick="app.startStudyMarked()">Study Marked Cards</button>
+                    <button class="nav-btn secondary" style="margin:0; color:var(--dark-text); border-color:var(--dark-text);" onclick="app.navigate('dashboard')">Back to Library</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div id="folder-modal" class="modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:200;">
+    <div class="modal-content" style="background: var(--bg); border: 2px solid var(--primary); padding: 2rem; border-radius: 12px; width: 400px; color: white;">
+        <h3 style="color:var(--primary); margin:0;">New Folder</h3>
+        <input type="text" id="new-folder-name" placeholder="Folder Name" style="margin-top:1rem; background: rgba(255,255,255,0.1); color: white;">
+        <div style="margin-top:2rem; text-align:right;">
+            <button class="nav-btn secondary" onclick="document.getElementById('folder-modal').style.display='none'">Cancel</button>
+            <button class="nav-btn" onclick="app.createFolder()">Create</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const app = {
+    data: { folders: [], sets: [] },
+    state: { currentSetId: null, currentCardIndex: 0, activeView: 'dashboard', currentFolderId: null, sessionMarkedIds: [] },
+    init: function() { this.loadData(); this.renderDashboard(); this.initKeyBindings(); },
+    initKeyBindings: function() {
+        window.addEventListener('keydown', (e) => {
+            if (this.state.activeView !== 'study') return;
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+            if (e.key === 'ArrowLeft') this.prevCard();
+            if (e.key === 'ArrowRight') this.nextCard();
+            if (['ArrowUp', 'ArrowDown', ' '].includes(e.key)) { e.preventDefault(); this.flipCard(); }
+        });
+    },
+    loadData: function() {
+        const saved = localStorage.getItem('flashOnionData');
+        if (saved) this.data = JSON.parse(saved);
+    },
+    saveData: function() {
+        localStorage.setItem('flashOnionData', JSON.stringify(this.data));
+        this.renderDashboard();
+    },
+    navigate: function(viewId) {
+        this.state.activeView = viewId;
+        document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+        const target = document.getElementById(`view-${viewId}`);
+        if(target) target.classList.add('active');
+        if(viewId === 'dashboard') this.renderDashboard();
+    },
+    renderDashboard: function() {
+        const fCont = document.getElementById('folder-container');
+        const sCont = document.getElementById('set-container');
+        const fSection = document.getElementById('folder-section');
+        const backBtn = document.getElementById('back-to-all');
+        const dashTitle = document.getElementById('dashboard-title');
+        const setsHeading = document.getElementById('sets-heading');
+        fCont.innerHTML = ''; sCont.innerHTML = '';
+        if (this.state.currentFolderId) {
+            const folder = this.data.folders.find(f => f.id == this.state.currentFolderId);
+            dashTitle.innerText = folder ? folder.name : "Folder";
+            fSection.classList.add('hidden');
+            backBtn.classList.remove('hidden');
+            setsHeading.innerText = "Sets in this Folder";
+            this.data.sets.filter(s => s.folderId == this.state.currentFolderId).forEach(s => this.createSetCard(s, sCont));
+        } else {
+            dashTitle.innerText = "Library";
+            fSection.classList.remove('hidden');
+            backBtn.classList.add('hidden');
+            setsHeading.innerText = "All Sets";
+            this.data.folders.forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'card-item';
+                div.innerHTML = `<button class="delete-btn-sm" onclick="event.stopPropagation(); app.deleteSet(${f.id}, true)">×</button><h3>📁 ${f.name}</h3><p>${this.data.sets.filter(s=>s.folderId==f.id).length} sets</p>`;
+                div.onclick = () => { this.state.currentFolderId = f.id; this.renderDashboard(); };
+                fCont.appendChild(div);
+            });
+            this.data.sets.forEach(s => this.createSetCard(s, sCont));
+        }
+    },
+    createSetCard: function(s, container) {
+        const div = document.createElement('div');
+        div.className = 'card-item';
+        div.innerHTML = `<button class="delete-btn-sm" onclick="event.stopPropagation(); app.deleteSet(${s.id}, false)">×</button><h3>${s.title}</h3><p>${s.cards.length} cards</p>`;
+        div.onclick = () => this.startStudy(s.id);
+        container.appendChild(div);
+    },
+    exitFolder: function() { this.state.currentFolderId = null; this.renderDashboard(); },
+    showFolderModal: function() { document.getElementById('folder-modal').style.display='flex'; },
+    createFolder: function() {
+        const name = document.getElementById('new-folder-name').value;
+        if(name) { this.data.folders.push({id: Date.now(), name}); this.saveData(); }
+        document.getElementById('folder-modal').style.display='none';
+    },
+    createNewSet: function() { this.state.currentSetId = null; this.renderEditor(); this.navigate('editor'); },
+    editCurrentSet: function() { this.renderEditor(this.state.currentSetId); this.navigate('editor'); },
+    renderEditor: function(setId = null) {
+        const container = document.getElementById('editor-cards-container');
+        const folderSel = document.getElementById('set-folder-select');
+        container.innerHTML = '';
+        folderSel.innerHTML = '<option value="">Folder: None</option>';
+        this.data.folders.forEach(f => folderSel.innerHTML += `<option value="${f.id}">${f.name}</option>`);
+        let set = { title: '', folderId: '', cards: [{id: Date.now(), front:'', back:''}] };
+        if (setId) set = this.data.sets.find(s => s.id === setId);
+        document.getElementById('set-title-input').value = set.title;
+        folderSel.value = set.folderId || "";
+        set.cards.forEach(c => this.addCardInput(c));
+    },
+
+    // 拖拽排序核心逻辑
+    handleDragOver: function(e) {
+        e.preventDefault();
+        const container = document.getElementById('editor-cards-container');
+        const dragging = document.querySelector('.dragging');
+        if (!dragging) return;
+        const afterElement = [...container.querySelectorAll('.editor-row:not(.dragging)')].reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = e.clientY - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+        
+        if (afterElement == null) {
+            container.appendChild(dragging);
+        } else {
+            container.insertBefore(dragging, afterElement);
+        }
+    },
+
+    addCardInput: function(card = {front:'', back:''}) {
+        const div = document.createElement('div');
+        div.className = 'editor-row';
+        div.dataset.id = card.id || Date.now();
+        div.draggable = true; // 开启拖拽
+        
+        // 拖拽事件监听
+        div.addEventListener('dragstart', () => div.classList.add('dragging'));
+        div.addEventListener('dragend', () => div.classList.remove('dragging'));
+
+        div.innerHTML = `
+            <button class="delete-btn-sm" style="position:absolute; top:10px; right:10px;" onclick="this.parentElement.remove()">×</button>
+            <div style="width:100%"><textarea rows="2" class="in-f" placeholder="Term (Card Front)">${card.front}</textarea></div>
+            <div style="width:100%"><textarea rows="2" class="in-b" placeholder="Definition (Card Back)">${card.back}</textarea></div>
+        `;
+        document.getElementById('editor-cards-container').appendChild(div);
+    },
+    saveSet: function() {
+        const title = document.getElementById('set-title-input').value;
+        if (!title) return alert("Title required");
+        const cards = [];
+        document.querySelectorAll('.editor-row').forEach(row => {
+            const front = row.querySelector('.in-f').value;
+            const back = row.querySelector('.in-b').value;
+            if(front || back) cards.push({id: row.dataset.id, front, back});
+        });
+        const set = { id: this.state.currentSetId || Date.now(), title, folderId: document.getElementById('set-folder-select').value, cards };
+        if(this.state.currentSetId) {
+            const i = this.data.sets.findIndex(s=>s.id==set.id);
+            this.data.sets[i] = set;
+        } else this.data.sets.push(set);
+        this.saveData(); this.startStudy(set.id);
+    },
+    deleteSet: function(id, isFolder) { 
+        if(confirm(`Delete this ${isFolder?'folder':'set'}?`)) { 
+            if(isFolder) this.data.folders = this.data.folders.filter(f=>f.id!=id);
+            else this.data.sets = this.data.sets.filter(s=>s.id!=id); 
+            this.saveData(); 
+        } 
+    },
+    startStudy: function(id) {
+        this.state.currentSetId = id; this.state.currentCardIndex = 0; this.state.sessionMarkedIds = [];
+        this.updateCard(); this.navigate('study');
+    },
+    updateCard: function() {
+        const set = this.data.sets.find(s=>s.id==this.state.currentSetId);
+        if(!set || !set.cards.length) return;
+        const card = set.cards[this.state.currentCardIndex];
+        const isDefinitionFirst = document.getElementById('mode-toggle-input').checked;
+        document.getElementById('flashcard-element').classList.remove('is-flipped');
+        document.getElementById('mark-current').classList.toggle('active', this.state.sessionMarkedIds.includes(card.id));
+        if(!isDefinitionFirst) {
+            document.getElementById('card-front-text').innerText = card.front;
+            document.getElementById('card-back-text').innerText = card.back;
+        } else {
+            document.getElementById('card-front-text').innerText = card.back;
+            document.getElementById('card-back-text').innerText = card.front;
+        }
+        document.getElementById('progress-text').innerText = `${this.state.currentCardIndex+1}/${set.cards.length}`;
+    },
+    toggleMark: function() {
+        const set = this.data.sets.find(s=>s.id==this.state.currentSetId);
+        const cardId = set.cards[this.state.currentCardIndex].id;
+        const idx = this.state.sessionMarkedIds.indexOf(cardId);
+        if(idx > -1) this.state.sessionMarkedIds.splice(idx, 1);
+        else this.state.sessionMarkedIds.push(cardId);
+        this.updateCard();
+    },
+    flipCard: function() { document.getElementById('flashcard-element').classList.toggle('is-flipped'); },
+    nextCard: function() { 
+        const set = this.data.sets.find(s=>s.id==this.state.currentSetId);
+        if(this.state.currentCardIndex < set.cards.length-1) { this.state.currentCardIndex++; this.updateCard(); }
+        else this.showResults();
+    },
+    prevCard: function() { if(this.state.currentCardIndex > 0) { this.state.currentCardIndex--; this.updateCard(); } },
+    showResults: function() {
+        const markedCount = this.state.sessionMarkedIds.length;
+        document.getElementById('results-stats').innerText = `Done! You marked ${markedCount} cards for review.`;
+        document.getElementById('study-marked-btn').style.display = markedCount > 0 ? 'block' : 'none';
+        this.navigate('results');
+    },
+    startStudyMarked: function() {
+        const originalSet = this.data.sets.find(s=>s.id==this.state.currentSetId);
+        const markedCards = originalSet.cards.filter(c => this.state.sessionMarkedIds.includes(c.id));
+        const tempId = Date.now();
+        const tempSet = { id: tempId, title: `Review: ${originalSet.title}`, cards: markedCards };
+        this.data.sets.push(tempSet);
+        this.startStudy(tempId);
+    }
+};
+app.init();
+</script>
+</body>
+</html>
